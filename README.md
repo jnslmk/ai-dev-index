@@ -37,7 +37,19 @@ uv run ai-dev-index serve
 
 Open `http://127.0.0.1:8080`.
 
-## NAS Deployment (Docker Compose)
+## CI/CD & NAS Deployment (Forgejo Registry)
+
+The canonical repository is on Forgejo at `forgejo.lemke.dev/jonas/ai-dev-index`.
+
+Images are automatically built on push to `main` by [`.forgejo/workflows/ci.yml`](./.forgejo/workflows/ci.yml) and published to the Forgejo container registry:
+
+- `forgejo.lemke.dev/jonas/ai-dev-index:0.1.<run_number>`
+- `forgejo.lemke.dev/jonas/ai-dev-index:sha-<short_sha>`
+- `forgejo.lemke.dev/jonas/ai-dev-index:latest`
+
+On the NAS, the service is managed declaratively via `jnslmk/nas-ansible` at `ai-dev-index.internal.lemke.dev`. The NAS pin is bumped by the same release dispatch that triggers the Forgejo CI build, so a merge to `main` rolls out through the usual `nas-ansible` renovate → auto-deploy path.
+
+For standalone Docker Compose usage:
 
 ```bash
 cp .env.example .env
@@ -47,7 +59,7 @@ docker compose up -d --build
 ```
 
 - Persistent SQLite database is stored in `./data/ai-dev-index.db` (ignored by git).
-- Edit `./channels.yaml` on the host and restart (or trigger a sync) to pick up new channels.
+- `docker-compose.yml` mounts `./channels.yaml` over the baked-in copy, so editing the host file and restarting picks up new channels without a rebuild. The NAS deployment bakes the channel list into the image; change `channels.yaml` in the repo and redeploy there.
 - Works great behind Tailscale, Caddy, Nginx Proxy Manager, or Traefik on your LAN.
 
 ## CLI Reference

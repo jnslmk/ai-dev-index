@@ -1,0 +1,195 @@
+# CI/CD for Forgejo Actions on the VPS `forgejo-runner` (label: ubuntu-latest).
+#
+# Pipeline:
+#   1. lint-and-test: runs ruff + pytest on every PR and push to main.
+#   2. docker-smoke: single-platform build + import smoke test on PRs.
+#   3. build-and-push: on push to main (or manual dispatch), builds a multi-arch
+#      image (linux/amd64 for the NAS + linux/arm64) and publishes it to this
+#      Forgejo instance's OCI registry:
+#        forgejo.lemke.dev/jonas/ai-dev-index:0.1.<run_number>
+#        forgejo.lemke.dev/jonas/ai-dev-index:sha-<sha>
+#        forgejo.lemke.dev/jonas/ai-dev-index:latest
+#   4. Dispatches jnslmk/nas-ansible's renovate.yml workflow so the pinned NAS
+#      image tag bumps, auto-merges, and rolls out to the NAS automatically.
+name: CI/CD
+
+"on":
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  lint-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+
+      - name: Install dependencies
+        run: uv sync --dev
+
+      - name: Lint with ruff
+        run: uv run ruff check src tests
+
+      - name: Run pytest
+        run: uv run pytest -v
+
+  docker-smoke:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Pre-pull BuildKit image (retry on 502)
+        run: |
+          set -euo pipefail
+          image="moby/buildkit:buildx-stable-1"
+          for i in 1 2 3 4; do
+            if docker pull "$image"; then
+              exit 0
+            fi
+            sleep_time=$((i * 5))
+            echo "Retrying in ${sleep_time}s..."
+            sleep "${sleep_time}"
+          done
+          exit 1
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+        with:
+          driver-opts: |
+            network=traefik
+            memory=768m
+            memory-swap=768m
+            cpu-quota=100000
+            cpu-period=100000
+          buildkitd-config-inline: |
+            [worker.oci]
+              max-parallelism = 1
+
+      - name: Build image (no push)
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: Dockerfile
+          platforms: linux/arm64
+          push: false
+          load: true
+          tags: ai-dev-index:ci-smoke
+
+      - name: Smoke-test container imports
+        run: |
+          docker run --rm --memory=512m --cpus=1 \
+            --entrypoint python ai-dev-index:ci-smoke -c \
+            "import ai_dev_index.web, ai_dev_index.pipeline, ai_dev_index.ingest, ai_dev_index.analyzer; print('OK')"
+
+  build-and-push:
+    needs: [lint-and-test]
+    if: >-
+      (github.event_name == 'push' && github.ref == 'refs/heads/main')
+      || github.event_name == 'workflow_dispatch'
+    concurrency:
+      group: build-and-push-main
+      cancel-in-progress: false
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v4
+
+      - name: Pre-pull BuildKit image (retry on 502)
+        run: |
+          set -euo pipefail
+          image="moby/buildkit:buildx-stable-1"
+          for i in 1 2 3 4; do
+            if docker pull "$image"; then
+              exit 0
+            fi
+            sleep_time=$((i * 5))
+            echo "Retrying in ${sleep_time}s..."
+            sleep "${sleep_time}"
+          done
+          exit 1
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+        with:
+          driver-opts: |
+            network=traefik
+            memory=768m
+            memory-swap=768m
+            cpu-quota=100000
+            cpu-period=100000
+          buildkitd-config-inline: |
+            [worker.oci]
+              max-parallelism = 1
+            [registry."forgejo:3000"]
+              http = true
+              insecure = true
+
+      - name: Configure internal Forgejo registry
+        env:
+          REGISTRY_TOKEN: ${{ secrets.REGISTRY_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ -z "${REGISTRY_TOKEN:-}" ]; then
+            echo "::error::REGISTRY_TOKEN secret is not set"
+            exit 1
+          fi
+          mkdir -p "$HOME/.docker"
+          auth="$(printf '%s' "jonas:${REGISTRY_TOKEN}" | base64 -w0)"
+          printf '{"auths":{"forgejo:3000":{"auth":"%s"}}}\n' "$auth" > "$HOME/.docker/config.json"
+
+      - name: Compute image tags
+        id: meta
+        run: |
+          set -euo pipefail
+          short_sha="$(git rev-parse --short=7 HEAD)"
+          version="0.1.${GITHUB_RUN_NUMBER}"
+          echo "version=${version}" >> "$GITHUB_OUTPUT"
+          echo "short_sha=${short_sha}" >> "$GITHUB_OUTPUT"
+          echo "Publishing tags: ${version}, sha-${short_sha}, latest"
+
+      - name: Build and push image to Forgejo registry
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: |
+            forgejo:3000/jonas/ai-dev-index:${{ steps.meta.outputs.version }}
+            forgejo:3000/jonas/ai-dev-index:sha-${{ steps.meta.outputs.short_sha }}
+            forgejo:3000/jonas/ai-dev-index:latest
+
+      - name: Trigger nas-ansible Renovate bump & NAS deploy
+        env:
+          NAS_DISPATCH_TOKEN: ${{ secrets.NAS_DISPATCH_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ -z "${NAS_DISPATCH_TOKEN:-}" ]; then
+            echo "NAS_DISPATCH_TOKEN not set; skipping nas-ansible dispatch"
+            exit 0
+          fi
+          code="$(curl -sS -o /tmp/dispatch-response.txt -w '%{http_code}' -X POST \
+            -H 'Accept: application/json' \
+            -H "Authorization: token ${NAS_DISPATCH_TOKEN}" \
+            -H 'Content-Type: application/json' \
+            http://forgejo:3000/api/v1/repos/jnslmk/nas-ansible/actions/workflows/renovate.yml/dispatches \
+            -d '{"ref":"main","inputs":{"ai_dev_index_release":"true"}}')"
+          if [ "$code" != '201' ] && [ "$code" != '204' ]; then
+            echo "::warning::nas-ansible workflow dispatch returned HTTP $code"
+            cat /tmp/dispatch-response.txt >&2
+          else
+            echo "Dispatched jnslmk/nas-ansible renovate.yml (ai_dev_index_release=true)"
+          fi
