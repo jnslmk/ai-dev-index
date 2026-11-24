@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>{% block title %}ai-dev-index{% endblock %}</title>
+  <link rel="stylesheet" href="/static/style.css" />
+  <link rel="alternate" type="application/atom+xml" title="ai-dev-index Atom Feed" href="/feed.xml" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="container topbar-inner">
+      <div class="brand-group">
+        <a href="/" class="brand">
+          <span class="brand-dot"></span>
+          <span>ai-dev-index</span>
+        </a>
+        <span class="badge badge-muted">self-hosted</span>
+      </div>
+
+      <nav class="nav">
+        <a href="/" class="nav-link {% if active_nav == 'feed' %}active{% endif %}">Feed</a>
+        <a href="/trends" class="nav-link {% if active_nav == 'trends' %}active{% endif %}">Trend Radar</a>
+        <a href="/channels" class="nav-link {% if active_nav == 'channels' %}active{% endif %}">Channels ({{ stats.channels }})</a>
+        <a href="/feed.xml" class="nav-link" title="Subscribe via Atom RSS">RSS</a>
+      </nav>
+
+      <div class="actions">
+        <span class="status-pill {% if llm_enabled %}pill-ok{% else %}pill-warn{% endif %}" title="{% if llm_enabled %}LLM summarization active ({{ llm_model }}){% else %}Set LLM_API_KEY in .env to enable AI summaries{% endif %}">
+          {% if llm_enabled %}LLM: {{ llm_model }}{% else %}Heuristic Mode{% endif %}
+        </span>
+        <button id="sync-btn" class="btn btn-primary" onclick="triggerSync()" {% if sync_running %}disabled{% endif %}>
+          {% if sync_running %}Syncing...{% else %}Sync Now{% endif %}
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main class="container main">
+    {% block content %}{% endblock %}
+  </main>
+
+  <footer class="container footer">
+    <span>ai-dev-index · {{ stats.videos }} videos indexed · {{ stats.transcripts_ok }} transcripts · {{ stats.llm_summaries }} AI summaries</span>
+    <span>Internal self-hosted index · Videos belong to their respective creators</span>
+  </footer>
+
+  <script>
+    async function triggerSync() {
+      const btn = document.getElementById('sync-btn');
+      if (!btn) return;
+      btn.disabled = true;
+      btn.textContent = 'Starting...';
+      try {
+        const res = await fetch('/api/sync', { method: 'POST' });
+        if (res.status === 202) {
+          btn.textContent = 'Syncing...';
+          setTimeout(() => location.reload(), 4000);
+        } else if (res.status === 409) {
+          btn.textContent = 'Already syncing...';
+        } else {
+          btn.disabled = false;
+          btn.textContent = 'Sync Failed';
+        }
+      } catch (e) {
+        btn.disabled = false;
+        btn.textContent = 'Sync Error';
+      }
+    }
+  </script>
+</body>
+</html>

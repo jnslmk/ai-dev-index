@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+
+{% block title %}Trend Radar · ai-dev-index{% endblock %}
+
+{% block content %}
+<section class="section-head">
+  <div>
+    <h1>Trend Radar</h1>
+    <p class="muted small">Topics covered by 2+ channels are marked hot — click any topic to compare creator takes.</p>
+  </div>
+  <div class="window-tabs">
+    {% for d in [7, 14, 30, 90] %}
+    <a href="/trends?days={{ d }}{% if selected_topic %}&topic={{ selected_topic | urlencode }}{% endif %}" class="btn {% if days == d %}btn-primary{% else %}btn-ghost{% endif %}">
+      {{ d }}d
+    </a>
+    {% endfor %}
+  </div>
+</section>
+
+{% if not trends %}
+<div class="card empty">
+  <h3>No trend data yet</h3>
+  <p class="muted">Run a sync to populate topics across your channels.</p>
+</div>
+{% else %}
+<div class="trends-layout">
+  <section class="card trend-list">
+    <h2>Top Topics ({{ days }} days)</h2>
+    {% for t in trends %}
+    <a
+      href="/trends?days={{ days }}&topic={{ t.name | urlencode }}"
+      class="trend-row {% if selected_topic|lower == t.name|lower %}active{% endif %}"
+    >
+      <div class="trend-row-head">
+        <span class="trend-name">
+          {% if t.hot %}<span class="hot-dot"></span>{% endif %}
+          {{ t.name }}
+        </span>
+        <span class="muted small">{{ t.channel_count }} ch · {{ t.video_count }} vid</span>
+      </div>
+      <div class="bar-track">
+        <div class="bar-fill {% if t.hot %}bar-hot{% endif %}" style="width: {{ ((t.video_count / max_videos) * 100) | round(0) }}%;"></div>
+      </div>
+      <div class="muted tiny">{{ t.channels | join(', ') }}</div>
+    </a>
+    {% endfor %}
+  </section>
+
+  <section class="trend-detail">
+    <div class="section-head">
+      <h2>Cross-Creator Coverage: {{ selected_topic }}</h2>
+      <a href="/?entity={{ selected_topic | urlencode }}&days={{ days }}" class="link-subtle">Filter in Feed →</a>
+    </div>
+    {% if not topic_videos %}
+    <div class="card empty">
+      <p class="muted">No videos matched this topic in the selected window.</p>
+    </div>
+    {% else %}
+    <div class="stack">
+      {% for v in topic_videos %}
+      <article class="card">
+        <div class="meta-line">
+          <span class="channel-tag">{{ v.channel_name }}</span>
+          <span class="muted">·</span>
+          <span class="muted">{{ v.published_at | format_date }}</span>
+          {% if v.sentiment %}<span class="badge badge-muted">{{ v.sentiment }}</span>{% endif %}
+        </div>
+        <h3 class="video-title"><a href="/video/{{ v.video_id }}">{{ v.title }}</a></h3>
+        <p class="video-summary">{{ v.summary }}</p>
+        {% if v.takeaways %}
+        <ul class="takeaway-list compact">
+          {% for item in v.takeaways[:3] %}
+          <li>{{ item }}</li>
+          {% endfor %}
+        </ul>
+        {% endif %}
+      </article>
+      {% endfor %}
+    </div>
+    {% endif %}
+  </section>
+</div>
+{% endif %}
+{% endblock %}

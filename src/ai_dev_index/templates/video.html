@@ -1,0 +1,125 @@
+{% extends "base.html" %}
+
+{% block title %}{{ video.title }} · ai-dev-index{% endblock %}
+
+{% block content %}
+<div class="breadcrumb">
+  <a href="/" class="link-subtle">← Back to Feed</a>
+</div>
+
+<article class="detail-layout">
+  <div class="detail-main">
+    <div class="card">
+      <div class="meta-line">
+        <a href="/?channel={{ video.channel_id }}" class="channel-tag">{{ video.channel_name }}</a>
+        <span class="muted">·</span>
+        <span class="muted">{{ video.published_at | format_date }}</span>
+        {% if video.sentiment %}
+        <span class="badge badge-muted">{{ video.sentiment }}</span>
+        {% endif %}
+        <span class="badge {% if video.analysis_status == 'llm' %}badge-ok{% else %}badge-muted{% endif %}">
+          {{ video.analysis_model or video.analysis_status }}
+        </span>
+      </div>
+      <h1 class="detail-title">{{ video.title }}</h1>
+
+      <div class="embed-wrap">
+        <iframe
+          src="https://www.youtube-nocookie.com/embed/{{ video.video_id }}"
+          title="{{ video.title }}"
+          frameborder="0"
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+          allowfullscreen
+        ></iframe>
+      </div>
+
+      <div class="detail-section">
+        <h2>Summary</h2>
+        <p class="lead">{{ video.summary or "No summary generated yet." }}</p>
+      </div>
+
+      {% if video.takeaways %}
+      <div class="detail-section">
+        <h2>Key Takeaways</h2>
+        <ul class="takeaway-list">
+          {% for item in video.takeaways %}
+          <li>{{ item }}</li>
+          {% endfor %}
+        </ul>
+      </div>
+      {% endif %}
+
+      {% if video.key_moments %}
+      <div class="detail-section">
+        <h2>Key Moments</h2>
+        <div class="moments-list">
+          {% for km in video.key_moments %}
+          <a
+            href="{{ video.url }}&t={{ km.timestamp_sec }}s"
+            target="_blank"
+            rel="noopener"
+            class="moment-item"
+          >
+            <span class="ts-pill">{{ km.timestamp_sec | format_ts }}</span>
+            <span>{{ km.label }}</span>
+          </a>
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
+
+      {% if store_transcripts and video.transcript_segments %}
+      <details class="detail-section transcript-box">
+        <summary>
+          Private Local Transcript ({{ video.transcript_segments | length }} segments · {{ video.transcript_source }})
+        </summary>
+        <div class="transcript-scroll">
+          {% for seg in video.transcript_segments %}
+          <div class="seg-row">
+            <a href="{{ video.url }}&t={{ seg.start | int }}s" target="_blank" rel="noopener" class="ts-pill">
+              {{ seg.start | format_ts }}
+            </a>
+            <span>{{ seg.text }}</span>
+          </div>
+          {% endfor %}
+        </div>
+      </details>
+      {% elif video.transcript_text %}
+      <details class="detail-section transcript-box">
+        <summary>Private Local Transcript ({{ video.transcript_source }})</summary>
+        <p class="transcript-plain">{{ video.transcript_text }}</p>
+      </details>
+      {% endif %}
+    </div>
+  </div>
+
+  <aside class="detail-side">
+    <div class="card">
+      <h3>Topics &amp; Entities</h3>
+      {% if video.entities %}
+      <div class="chip-row">
+        {% for e in video.entities %}
+        <a href="/trends?topic={{ e.name | urlencode }}" class="chip">
+          <span>{{ e.name }}</span>
+          <span class="chip-count">{{ e.type }}</span>
+        </a>
+        {% endfor %}
+      </div>
+      {% else %}
+      <p class="muted small">No entities tagged yet.</p>
+      {% endif %}
+    </div>
+
+    <div class="card">
+      <h3>Source</h3>
+      <p class="small muted">Transcript status: <strong>{{ video.transcript_status }}</strong></p>
+      {% if video.error_message %}
+      <p class="small warn-text">{{ video.error_message }}</p>
+      {% endif %}
+      <a href="{{ video.url }}" target="_blank" rel="noopener" class="btn btn-primary btn-block">
+        Watch on YouTube ↗
+      </a>
+    </div>
+  </aside>
+</article>
+{% endblock %}

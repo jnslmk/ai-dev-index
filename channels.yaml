@@ -1,0 +1,92 @@
+# Curated high-signal AI engineering YouTube channels
+# Each channel uses YouTube's official Atom RSS feed (no API key or quota required).
+# You can add any channel by finding its UC... channel ID.
+
+channels:
+  # --- Core Developer & AI Engineering ---
+  - name: Matt Pocock
+    handle: "@mattpocockuk"
+    channel_id: UCswG6FSbgZjbWtdf_hMLaow
+    category: ai-engineering
+    priority: high
+
+  - name: Theo - t3.gg
+    handle: "@t3dotgg"
+    channel_id: UCbRP3c757lWg9M-U7TyEkXA
+    category: ai-engineering
+    priority: high
+
+  - name: Better Stack
+    handle: "@BetterStack"
+    channel_id: UCkVfrGwV-iG9bSsgCbrNPxQ
+    category: ai-engineering
+    priority: high
+
+  # --- Hands-on Agents, Workflows & Production Talks ---
+  - name: AI Engineer
+    handle: "@aiDotEngineer"
+    channel_id: UCLKPca3kwwd-B59HNr-_lvA
+    category: production-talks
+    priority: high
+
+  - name: IndyDevDan
+    handle: "@indydevdan"
+    channel_id: UC_x36zCEGilGpB1m-V4gmjg
+    category: coding-agents
+    priority: high
+
+  - name: Dave Ebbelaar
+    handle: "@daveebbelaar"
+    channel_id: UCn8ujwUInbJkBhffxqAPBVQ
+    category: coding-agents
+    priority: medium
+
+  - name: Cole Medin
+    handle: "@ColeMedin"
+    channel_id: UCMwVTLZIRRUyyVrkjDpn4pA
+    category: coding-agents
+    priority: medium
+
+  - name: Latent Space
+    handle: "@LatentSpacePod"
+    channel_id: UCxBcwypKK-W3GHd_RZ9FZrQ
+    category: production-talks
+    priority: high
+
+  - name: Fireship
+    handle: "@Fireship"
+    channel_id: UCsBjURrPoezykLs9EqgamOA
+    category: dev-news
+    priority: high
+
+  # --- Anti-Hype Analysis & Deep Foundations ---
+  - name: AI Explained
+    handle: "@aiexplained-official"
+    channel_id: UCNJ1Ymd5yFuUPtn21xtRbbw
+    category: analysis
+    priority: high
+
+  - name: Andrej Karpathy
+    handle: "@AndrejKarpathy"
+    channel_id: UCXUPKJO5MZQN11PqgIvyuvQ
+    category: foundations
+    priority: high
+
+  # --- Official AI Lab & Framework Developer Channels ---
+  - name: Anthropic
+    handle: "@anthropic-ai"
+    channel_id: UCrDwWp7EBBv4NwvScIpBDOA
+    category: official-labs
+    priority: medium
+
+  - name: OpenAI
+    handle: "@OpenAI"
+    channel_id: UCXZCJLdBC09xxGZ6gcdrc6A
+    category: official-labs
+    priority: medium
+
+  - name: LangChain
+    handle: "@LangChain"
+    channel_id: UCC-lyoTfSrcJzA1ab3APAgw
+    category: official-labs
+    priority: medium

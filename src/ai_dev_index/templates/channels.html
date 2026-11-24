@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+
+{% block title %}Channels · ai-dev-index{% endblock %}
+
+{% block content %}
+<section class="section-head">
+  <div>
+    <h1>Tracked Channels</h1>
+    <p class="muted small">Configured via <code>channels.yaml</code>. Discovered via YouTube's official Atom RSS feeds.</p>
+  </div>
+</section>
+
+{% for category, items in grouped_channels.items() %}
+<section class="category-block">
+  <h2 class="category-title">{{ category }}</h2>
+  <div class="channel-grid">
+    {% for ch in items %}
+    <div class="card channel-card">
+      <div class="channel-card-head">
+        <h3><a href="/?channel={{ ch.channel_id }}">{{ ch.name }}</a></h3>
+        <span class="badge badge-muted">{{ ch.priority }}</span>
+      </div>
+      <div class="muted small">{{ ch.handle or ch.channel_id }}</div>
+      <div class="channel-card-stats">
+        <span><strong>{{ ch.video_count }}</strong> videos</span>
+        <span class="muted small">Latest: {{ ch.latest_video_at | format_date }}</span>
+      </div>
+      <div class="card-links">
+        <a href="/?channel={{ ch.channel_id }}" class="link-subtle">View videos</a>
+        <a href="https://www.youtube.com/channel/{{ ch.channel_id }}" target="_blank" rel="noopener" class="link-subtle">YouTube ↗</a>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</section>
+{% endfor %}
+{% endblock %}

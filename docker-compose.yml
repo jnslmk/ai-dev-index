@@ -1,0 +1,16 @@
+services:
+  ai-dev-index:
+    build: .
+    container_name: ai-dev-index
+    restart: unless-stopped
+    ports:
+      - "${AI_DEV_INDEX_PORT:-8080}:8080"
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      AI_DEV_INDEX_DATA_DIR: /data
+      AI_DEV_INDEX_CHANNELS_FILE: /app/channels.yaml
+    volumes:
+      - ./data:/data
+      - ./channels.yaml:/app/channels.yaml:ro

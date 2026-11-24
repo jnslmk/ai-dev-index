@@ -1,0 +1,142 @@
+{% extends "base.html" %}
+
+{% block title %}Feed · ai-dev-index{% endblock %}
+
+{% block content %}
+<section class="filter-bar card">
+  <form method="get" action="/" class="filter-form">
+    <input
+      type="search"
+      name="q"
+      value="{{ filters.q }}"
+      placeholder="Search titles, summaries, topics, or local transcripts..."
+      class="input input-search"
+    />
+    <select name="channel" class="select">
+      <option value="">All channels</option>
+      {% for ch in channels %}
+      <option value="{{ ch.channel_id }}" {% if filters.channel == ch.channel_id %}selected{% endif %}>
+        {{ ch.name }} ({{ ch.video_count }})
+      </option>
+      {% endfor %}
+    </select>
+    <select name="category" class="select">
+      <option value="">All categories</option>
+      {% for cat in categories %}
+      <option value="{{ cat }}" {% if filters.category == cat %}selected{% endif %}>{{ cat }}</option>
+      {% endfor %}
+    </select>
+    <select name="days" class="select">
+      <option value="7" {% if filters.days == 7 %}selected{% endif %}>Last 7 days</option>
+      <option value="14" {% if filters.days == 14 %}selected{% endif %}>Last 14 days</option>
+      <option value="30" {% if filters.days == 30 %}selected{% endif %}>Last 30 days</option>
+      <option value="90" {% if filters.days == 90 %}selected{% endif %}>Last 90 days</option>
+      <option value="0" {% if filters.days == 0 %}selected{% endif %}>All time</option>
+    </select>
+    {% if filters.entity %}
+    <input type="hidden" name="entity" value="{{ filters.entity }}" />
+    {% endif %}
+    <button type="submit" class="btn btn-secondary">Filter</button>
+    {% if filters.q or filters.channel or filters.category or filters.entity %}
+    <a href="/" class="btn btn-ghost">Reset</a>
+    {% endif %}
+  </form>
+</section>
+
+{% if trends %}
+<section class="trend-strip">
+  <div class="section-head">
+    <h2>Trending Topics (14d)</h2>
+    <a href="/trends" class="link-subtle">Open Trend Radar →</a>
+  </div>
+  <div class="chip-row">
+    {% for t in trends %}
+    <a
+      href="/?entity={{ t.name | urlencode }}&days={{ filters.days or 30 }}"
+      class="chip {% if t.hot %}chip-hot{% endif %} {% if filters.entity|lower == t.name|lower %}chip-active{% endif %}"
+      title="{{ t.video_count }} videos across {{ t.channel_count }} channels: {{ t.channels | join(', ') }}"
+    >
+      {% if t.hot %}<span class="hot-dot"></span>{% endif %}
+      <span>{{ t.name }}</span>
+      <span class="chip-count">{{ t.channel_count }}ch · {{ t.video_count }}v</span>
+    </a>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
+
+<section class="feed-section">
+  <div class="section-head">
+    <h2>
+      {% if filters.entity %}
+        Topic: {{ filters.entity }}
+      {% elif filters.q %}
+        Search: "{{ filters.q }}"
+      {% else %}
+        Latest Indexed Videos
+      {% endif %}
+      <span class="muted">({{ videos | length }})</span>
+    </h2>
+    {% if stats.last_run %}
+    <span class="muted small">Last sync: {{ stats.last_run.finished_at or stats.last_run.started_at }} ({{ stats.last_run.status }})</span>
+    {% endif %}
+  </div>
+
+  {% if not videos %}
+  <div class="empty card">
+    <h3>No videos indexed yet</h3>
+    <p class="muted">
+      Click <strong>Sync Now</strong> above or run <code>uv run ai-dev-index sync</code> to pull the latest uploads from all {{ stats.channels }} channels.
+    </p>
+  </div>
+  {% else %}
+  <div class="video-grid">
+    {% for v in videos %}
+    <article class="card video-card">
+      <div class="video-card-top">
+        <a href="/video/{{ v.video_id }}" class="thumb-wrap">
+          <img src="{{ v.thumbnail_url }}" alt="{{ v.title }}" loading="lazy" class="thumb" />
+        </a>
+        <div class="video-meta">
+          <div class="meta-line">
+            <a href="/?channel={{ v.channel_id }}" class="channel-tag">{{ v.channel_name }}</a>
+            <span class="muted">·</span>
+            <span class="muted">{{ v.published_at | format_date }}</span>
+            {% if v.analysis_status == 'llm' %}
+            <span class="badge badge-ok">AI Summary</span>
+            {% elif v.transcript_status == 'ok' %}
+            <span class="badge badge-muted">Transcript Indexed</span>
+            {% endif %}
+          </div>
+          <h3 class="video-title">
+            <a href="/video/{{ v.video_id }}">{{ v.title }}</a>
+          </h3>
+          <p class="video-summary">{{ v.summary or "Pending analysis." }}</p>
+        </div>
+      </div>
+
+      {% if v.takeaways %}
+      <ul class="takeaway-list compact">
+        {% for item in v.takeaways[:3] %}
+        <li>{{ item }}</li>
+        {% endfor %}
+      </ul>
+      {% endif %}
+
+      <div class="video-card-foot">
+        <div class="chip-row small">
+          {% for e in v.entities[:6] %}
+          <a href="/?entity={{ e.name | urlencode }}" class="chip chip-sm">{{ e.name }}</a>
+          {% endfor %}
+        </div>
+        <div class="card-links">
+          <a href="/video/{{ v.video_id }}" class="link-subtle">Details</a>
+          <a href="{{ v.url }}" target="_blank" rel="noopener" class="link-subtle">YouTube ↗</a>
+        </div>
+      </div>
+    </article>
+    {% endfor %}
+  </div>
+  {% endif %}
+</section>
+{% endblock %}

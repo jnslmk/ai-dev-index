@@ -1,0 +1,43 @@
+[project]
+name = "ai-dev-index"
+version = "0.1.0"
+description = "Self-hosted index, structured summaries, and trend radar for AI engineering YouTube channels"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+dependencies = [
+    "fastapi>=0.115.0",
+    "httpx>=0.28.0",
+    "jinja2>=3.1.4",
+    "pydantic>=2.10.0",
+    "pydantic-settings>=2.7.0",
+    "pyyaml>=6.0.2",
+    "uvicorn[standard]>=0.34.0",
+    "youtube-transcript-api>=1.0.0",
+    "yt-dlp>=2025.1.0",
+]
+
+[project.scripts]
+ai-dev-index = "ai_dev_index.cli:main"
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3.0",
+    "pytest-asyncio>=0.25.0",
+    "ruff>=0.9.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/ai_dev_index"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_default_fixture_loop_scope = "function"
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
