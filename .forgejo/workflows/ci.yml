@@ -13,7 +13,7 @@
 #      image tag bumps, auto-merges, and rolls out to the NAS automatically.
 name: CI/CD
 
-"on":
+on:
   push:
     branches:
       - main
