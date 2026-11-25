@@ -37,6 +37,7 @@ def main(argv: list[str] | None = None) -> int:
     sync_p.add_argument("--limit-per-channel", type=int, default=None)
     sync_p.add_argument("--channel", default=None, help="Filter by channel name, handle, or ID")
     sync_p.add_argument("--skip-transcripts", action="store_true")
+    sync_p.add_argument("--since-days", type=int, default=None, help="Only fetch transcripts/summaries for videos published in the last N days")
     sync_p.add_argument(
         "--reanalyze-heuristic",
         action="store_true",
@@ -69,6 +70,7 @@ def main(argv: list[str] | None = None) -> int:
             channel_filter=args.channel,
             skip_transcripts=args.skip_transcripts,
             reanalyze_heuristic=args.reanalyze_heuristic,
+            since_days=args.since_days,
         )
         print(
             json.dumps(

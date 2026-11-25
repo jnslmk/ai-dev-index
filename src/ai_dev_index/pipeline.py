@@ -4,6 +4,7 @@ import logging
 import threading
 import time
 from dataclasses import dataclass, field
+from datetime import UTC, datetime, timedelta
 
 import httpx
 
@@ -23,6 +24,16 @@ class SyncSummary:
     transcripts_fetched: int = 0
     videos_analyzed: int = 0
     errors: list[str] = field(default_factory=list)
+
+
+def _published_before(published_at: str, cutoff: datetime) -> bool:
+    try:
+        published = datetime.fromisoformat(published_at)
+    except ValueError:
+        return False
+    if published.tzinfo is None:
+        published = published.replace(tzinfo=UTC)
+    return published < cutoff
 
 
 class SyncPipeline:
@@ -47,6 +58,7 @@ class SyncPipeline:
         channel_filter: str | None = None,
         skip_transcripts: bool = False,
         reanalyze_heuristic: bool = False,
+        since_days: int | None = None,
     ) -> SyncSummary:
         if not self._lock.acquire(blocking=False):
             raise RuntimeError("A sync run is already in progress")
@@ -55,6 +67,9 @@ class SyncPipeline:
         summary = SyncSummary(run_id=run_id)
         per_channel = limit_per_channel or self.settings.videos_per_channel
         transcripts_rate_limited = False
+        cutoff = (
+            datetime.now(UTC) - timedelta(days=since_days) if since_days else None
+        )
 
         try:
             channels = self.load_configured_channels()
@@ -101,6 +116,13 @@ class SyncPipeline:
 
                         existing = self.db.get_video(video.video_id)
                         if not existing:
+                            continue
+
+                        # ponytail: date-windowed runs record discovery but skip
+                        # processing older videos; a later full sync picks them up.
+                        if cutoff is not None and _published_before(
+                            existing["published_at"], cutoff
+                        ):
                             continue
 
                         transcript_text = existing["transcript_text"]

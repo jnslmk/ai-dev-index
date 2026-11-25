@@ -87,6 +87,14 @@ class Settings(BaseSettings):
         default=60.0,
         validation_alias=AliasChoices("LLM_TIMEOUT_SECONDS"),
     )
+    llm_session_id: str = Field(
+        default="ai-dev-index",
+        validation_alias=AliasChoices("LLM_SESSION_ID"),
+    )
+    llm_reasoning_effort: str = Field(
+        default="",
+        validation_alias=AliasChoices("LLM_REASONING_EFFORT"),
+    )
 
     @property
     def db_path(self) -> Path:

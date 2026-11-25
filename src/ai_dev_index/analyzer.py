@@ -248,8 +248,13 @@ Transcript (with approximate [Xs] timestamps):
     headers = {
         "Authorization": f"Bearer {settings.llm_api_key}",
         "Content-Type": "application/json",
+        # ponytail: gateways like OpenCode Go require a stable session header
+        # and prefer callers to identify with their own user agent.
+        "User-Agent": "ai-dev-index",
     }
-    payload = {
+    if settings.llm_session_id.strip():
+        headers["x-opencode-session"] = settings.llm_session_id.strip()
+    payload: dict[str, Any] = {
         "model": settings.llm_model,
         "temperature": 0.2,
         "response_format": {"type": "json_object"},
@@ -264,6 +269,8 @@ Transcript (with approximate [Xs] timestamps):
             {"role": "user", "content": prompt},
         ],
     }
+    if settings.llm_reasoning_effort.strip():
+        payload["reasoning_effort"] = settings.llm_reasoning_effort.strip()
 
     try:
         with httpx.Client(timeout=settings.llm_timeout_seconds) as client:
