@@ -181,7 +181,7 @@ def _fetch_via_youtube_transcript_api(
             text=text,
             segments=raw_segments,
         )
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         if type(exc).__name__ in {"RequestBlocked", "IpBlocked"} or "429" in str(exc):
             raise TranscriptRateLimited(str(exc)) from exc
         logger.debug("youtube-transcript-api failed for %s: %s", video_id, exc)
