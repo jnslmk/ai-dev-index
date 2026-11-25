@@ -10,7 +10,7 @@ import httpx
 from ai_dev_index.analyzer import analyze_video
 from ai_dev_index.config import ChannelConfig, Settings, load_channels
 from ai_dev_index.db import Database
-from ai_dev_index.ingest import fetch_channel_feed, fetch_transcript
+from ai_dev_index.ingest import TranscriptRateLimited, fetch_channel_feed, fetch_transcript
 
 logger = logging.getLogger(__name__)
 
@@ -54,6 +54,7 @@ class SyncPipeline:
         run_id = self.db.start_sync_run()
         summary = SyncSummary(run_id=run_id)
         per_channel = limit_per_channel or self.settings.videos_per_channel
+        transcripts_rate_limited = False
 
         try:
             channels = self.load_configured_channels()
@@ -105,11 +106,19 @@ class SyncPipeline:
                         transcript_text = existing["transcript_text"]
                         transcript_segments = existing["transcript_segments"]
 
-                        if not skip_transcripts and existing["transcript_status"] in {
+                        throttled = transcripts_rate_limited or skip_transcripts
+                        if not throttled and existing["transcript_status"] in {
                             "pending",
                             "error",
                         }:
-                            t_res = fetch_transcript(video.video_id)
+                            try:
+                                t_res = fetch_transcript(video.video_id)
+                            except TranscriptRateLimited as exc:
+                                transcripts_rate_limited = True
+                                msg = f"Transcript fetch throttled by YouTube, skipping rest of run: {exc}"
+                                logger.warning(msg)
+                                summary.errors.append(msg)
+                                continue
                             self.db.save_transcript(
                                 video.video_id,
                                 status=t_res.status,

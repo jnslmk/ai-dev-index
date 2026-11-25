@@ -20,6 +20,10 @@ ATOM_NS = {
 }
 
 
+class TranscriptRateLimited(Exception):
+    """YouTube is throttling/blocking caption requests for this IP."""
+
+
 @dataclass(slots=True)
 class DiscoveredVideo:
     video_id: str
@@ -178,6 +182,8 @@ def _fetch_via_youtube_transcript_api(
             segments=raw_segments,
         )
     except Exception as exc:  # noqa: BLE001
+        if type(exc).__name__ in {"RequestBlocked", "IpBlocked"} or "429" in str(exc):
+            raise TranscriptRateLimited(str(exc)) from exc
         logger.debug("youtube-transcript-api failed for %s: %s", video_id, exc)
         return None
 
@@ -235,11 +241,18 @@ def _fetch_via_yt_dlp(
 
         sub_files = sorted(Path(tmp).glob(f"{video_id}*.json3"))
         if not sub_files:
+            stderr = proc.stderr.strip()
+            if (
+                "429" in stderr
+                or "Too Many Requests" in stderr
+                or "confirm you're not a bot" in stderr
+            ):
+                raise TranscriptRateLimited(stderr[:300])
             logger.debug(
                 "yt-dlp found no subtitles for %s (rc=%s, stderr=%s)",
                 video_id,
                 proc.returncode,
-                proc.stderr.strip()[:200],
+                stderr[:200],
             )
             return None
 
@@ -264,7 +277,12 @@ def fetch_transcript(
     *,
     languages: tuple[str, ...] = ("en", "en-US", "en-GB"),
 ) -> TranscriptResult:
-    """Fetch transcript using youtube-transcript-api, falling back to yt-dlp."""
+    """Fetch transcript using youtube-transcript-api, falling back to yt-dlp.
+
+    Raises TranscriptRateLimited when YouTube throttles the request, so the
+    caller can stop hitting the API for the rest of the run instead of walking
+    every remaining video into the same 429.
+    """
     res = _fetch_via_youtube_transcript_api(video_id, languages)
     if res is not None:
         return res
